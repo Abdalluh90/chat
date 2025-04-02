@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            display: flex;
+        }
+        .user-list {
+            width: 200px;
+            background-color: #fff;
+            padding: 20px;
+            border-right: 1px solid #ddd;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .chat-box {
+            flex: 1;
+            background-color: #fff;
+            padding: 20px;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .message {
+            margin: 10px 0;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="user-list">
+            <h3>المستخدمين</h3>
+            <ul id="user-list"></ul>
+        </div>
+        <div class="chat-box">
+            <h3>الدردشة</h3>
+            <div id="messages"></div>
+            <input type="text" id="message" placeholder="اكتب رسالة" />
+            <button id="send-btn">إرسال</button>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+        import { getDatabase, ref, set, get, child, push, onValue } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDHvY3ioMroA0YGMySyjBAjQPx7M3z8HPA",
+            authDomain: "chat-dddf0.firebaseapp.com",
+            databaseURL: "https://chat-dddf0-default-rtdb.firebaseio.com",
+            projectId: "chat-dddf0",
+            storageBucket: "chat-dddf0.firebasestorage.app",
+            messagingSenderId: "777441857226",
+            appId: "1:777441857226:web:96bca1f2c29291db906e33",
+            measurementId: "G-RMYXYFHFTR"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth();
+        const database = getDatabase(app);
+
+        let selectedChatId = ''; // للتمكن من تتبع المحادثة المفتوحة حالياً
+
+        // Load user list
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                const usersRef = ref(database, 'users');
+                get(usersRef).then((snapshot) => {
+                    if (snapshot.exists()) {
+                        const userList = snapshot.val();
+                        const userListContainer = document.getElementById('user-list');
+                        userListContainer.innerHTML = ''; // مسح القائمة السابقة
+                        for (const uid in userList) {
+                            if (userList.hasOwnProperty(uid) && uid !== user.uid) { // لا تعرض المستخدم الحالي
+                                const listItem = document.createElement('li');
+                                listItem.textContent = userList[uid].username;
+                                listItem.setAttribute('data-uid', uid);
+                                listItem.addEventListener('click', startChat);
+                                userListContainer.appendChild(listItem);
+                            }
+                        }
+                    }
+                });
+            } else {
+                window.location.href = 'index.html'; // إذا لم يكن المستخدم مسجلاً الدخول، قم بإعادة توجيهه
+            }
+        });
+
+        // Start chat with selected user
+        function startChat(event) {
+            const selectedUserId = event.target.getAttribute('data-uid');
+            const currentUser = auth.currentUser;
+            selectedChatId = [currentUser.uid, selectedUserId].sort().join('_');
+            loadChat(selectedChatId); // تحميل المحادثة عند تحديد مستخدم
+        }
+
+        // Load chat history for the selected user
+        function loadChat(chatId) {
+            const messagesRef = ref(database, 'chats/' + chatId);
+            
+            // استخدام `onValue` للاستماع إلى التغييرات في المحادثة
+            onValue(messagesRef, (snapshot) => {
+                const messagesContainer = document.getElementById('messages');
+                messagesContainer.innerHTML = ''; // مسح الرسائل السابقة
+                
+                snapshot.forEach((childSnapshot) => {
+                    const message = childSnapshot.val();
+                    const messageDiv = document.createElement('div');
+                    messageDiv.classList.add('message');
+                    messageDiv.textContent = `${message.username}: ${message.text}`;
+                    messagesContainer.appendChild(messageDiv);
+                });
+            });
+        }
+
+        // Send a message
+        document.getElementById('send-btn').addEventListener('click', () => {
+            const messageText = document.getElementById('message').value;
+            if (messageText.trim() === '') return;
+
+            const currentUser = auth.currentUser;
+            const messageData = {
+                username: currentUser.displayName,
+                text: messageText
+            };
+
+            const newMessageRef = push(ref(database, 'chats/' + selectedChatId));
+            set(newMessageRef, messageData);
+
+            document.getElementById('message').value = ''; // مسح الحقل بعد إرسال الرسالة
+        });
+    </script>
+</body>
+</html>
