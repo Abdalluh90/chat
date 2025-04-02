@@ -26,12 +26,21 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-        import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-        import { getDatabase, ref, onChildAdded, push, set, get, onValue } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
 
         // 🔥 بيانات Firebase (ضع بياناتك هنا)
-        const firebaseConfig = { /* بيانات Firebase هنا */ };
+        const firebaseConfig = {
+            apiKey: "API_KEY",
+            authDomain: "chat-dddf0.firebaseapp.com",
+            databaseURL: "https://chat-dddf0-default-rtdb.firebaseio.com",
+            projectId: "chat-dddf0",
+            storageBucket: "chat-dddf0.appspot.com",
+            messagingSenderId: "777441857226",
+            appId: "1:777441857226:web:96bca1f2c29291db906e33"
+        };
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getDatabase(app);
