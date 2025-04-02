@@ -5,52 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
-        }
-        .container {
-            display: flex;
-        }
-        .user-list {
-            width: 200px;
-            background-color: #fff;
-            padding: 20px;
-            border-right: 1px solid #ddd;
-            height: 100vh;
-            overflow-y: auto;
-        }
-        .chat-box {
-            flex: 1;
-            background-color: #fff;
-            padding: 20px;
-            height: 100vh;
-            overflow-y: auto;
-        }
-        .message {
-            margin: 10px 0;
-        }
-        input {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        button {
-            width: 100%;
-            padding: 10px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
+        /* بعض التنسيقات الأساسية */
     </style>
 </head>
 <body>
@@ -73,7 +28,6 @@
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
         import { getDatabase, ref, set, get, child, push, onValue } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
 
-        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDHvY3ioMroA0YGMySyjBAjQPx7M3z8HPA",
             authDomain: "chat-dddf0.firebaseapp.com",
@@ -89,9 +43,9 @@
         const auth = getAuth();
         const database = getDatabase(app);
 
-        let selectedChatId = ''; // للتمكن من تتبع المحادثة المفتوحة حالياً
+        let selectedChatId = ''; // لتتبع المحادثة المفتوحة حالياً
 
-        // Load user list
+        // Load قائمة المستخدمين
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 const usersRef = ref(database, 'users');
@@ -101,7 +55,7 @@
                         const userListContainer = document.getElementById('user-list');
                         userListContainer.innerHTML = ''; // مسح القائمة السابقة
                         for (const uid in userList) {
-                            if (userList.hasOwnProperty(uid) && uid !== user.uid) { // لا تعرض المستخدم الحالي
+                            if (userList.hasOwnProperty(uid) && uid !== user.uid) { // عدم عرض المستخدم الحالي
                                 const listItem = document.createElement('li');
                                 listItem.textContent = userList[uid].username;
                                 listItem.setAttribute('data-uid', uid);
@@ -116,19 +70,19 @@
             }
         });
 
-        // Start chat with selected user
+        // بدء الدردشة مع المستخدم المحدد
         function startChat(event) {
             const selectedUserId = event.target.getAttribute('data-uid');
             const currentUser = auth.currentUser;
-            selectedChatId = [currentUser.uid, selectedUserId].sort().join('_');
-            loadChat(selectedChatId); // تحميل المحادثة عند تحديد مستخدم
+            selectedChatId = [currentUser.uid, selectedUserId].sort().join('_'); // إنشاء chatId فريد للمحادثة بين المستخدمين
+            loadChat(selectedChatId); // تحميل الرسائل للمحادثة بين المستخدمين
         }
 
-        // Load chat history for the selected user
+        // تحميل المحادثة بين المستخدمين
         function loadChat(chatId) {
             const messagesRef = ref(database, 'chats/' + chatId);
             
-            // استخدام `onValue` للاستماع إلى التغييرات في المحادثة
+            // الاستماع للتغييرات في المحادثة
             onValue(messagesRef, (snapshot) => {
                 const messagesContainer = document.getElementById('messages');
                 messagesContainer.innerHTML = ''; // مسح الرسائل السابقة
@@ -143,7 +97,7 @@
             });
         }
 
-        // Send a message
+        // إرسال رسالة جديدة
         document.getElementById('send-btn').addEventListener('click', () => {
             const messageText = document.getElementById('message').value;
             if (messageText.trim() === '') return;
