@@ -1,118 +1,173 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat</title>
-    <style>
-        /* بعض التنسيقات الأساسية */
-    </style>
+    <title>الدردشة</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
         <div class="user-list">
-            <h3>المستخدمين</h3>
+            <h3>المستخدمون</h3>
+            <button id="logout-btn">تسجيل الخروج</button>
+            <button id="dark-mode-toggle">🌙 الوضع الليلي</button>
             <ul id="user-list"></ul>
         </div>
         <div class="chat-box">
-            <h3>الدردشة</h3>
+            <h3 id="chat-title">اختر مستخدمًا لبدء الدردشة</h3>
+            <p id="typing-status"></p>
             <div id="messages"></div>
-            <input type="text" id="message" placeholder="اكتب رسالة" />
-            <button id="send-btn">إرسال</button>
+            <div class="input-box">
+                <input type="text" id="message" placeholder="اكتب رسالتك..." oninput="showTyping()">
+                <button id="send-btn">إرسال</button>
+            </div>
         </div>
     </div>
 
-    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-        import { getDatabase, ref, set, get, child, push, onValue } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
+        import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+        import { getDatabase, ref, onChildAdded, push, set, get, onValue } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDHvY3ioMroA0YGMySyjBAjQPx7M3z8HPA",
-            authDomain: "chat-dddf0.firebaseapp.com",
-            databaseURL: "https://chat-dddf0-default-rtdb.firebaseio.com",
-            projectId: "chat-dddf0",
-            storageBucket: "chat-dddf0.firebasestorage.app",
-            messagingSenderId: "777441857226",
-            appId: "1:777441857226:web:96bca1f2c29291db906e33",
-            measurementId: "G-RMYXYFHFTR"
-        };
-
+        // 🔥 بيانات Firebase (ضع بياناتك هنا)
+        const firebaseConfig = { /* بيانات Firebase هنا */ };
         const app = initializeApp(firebaseConfig);
-        const auth = getAuth();
-        const database = getDatabase(app);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
 
-        let selectedChatId = ''; // لتتبع المحادثة المفتوحة حالياً
+        let currentUser;
+        let selectedUser = null;
 
-        // Load قائمة المستخدمين
-        onAuthStateChanged(auth, (user) => {
+        // 🔹 التحقق من حالة تسجيل الدخول
+        onAuthStateChanged(auth, user => {
             if (user) {
-                const usersRef = ref(database, 'users');
-                get(usersRef).then((snapshot) => {
-                    if (snapshot.exists()) {
-                        const userList = snapshot.val();
-                        const userListContainer = document.getElementById('user-list');
-                        userListContainer.innerHTML = ''; // مسح القائمة السابقة
-                        for (const uid in userList) {
-                            if (userList.hasOwnProperty(uid) && uid !== user.uid) { // عدم عرض المستخدم الحالي
-                                const listItem = document.createElement('li');
-                                listItem.textContent = userList[uid].username;
-                                listItem.setAttribute('data-uid', uid);
-                                listItem.addEventListener('click', startChat);
-                                userListContainer.appendChild(listItem);
-                            }
-                        }
-                    }
-                });
+                currentUser = user;
+                loadUsers();
             } else {
-                window.location.href = 'index.html'; // إذا لم يكن المستخدم مسجلاً الدخول، قم بإعادة توجيهه
+                window.location.href = "index.html";
             }
         });
 
-        // بدء الدردشة مع المستخدم المحدد
-        function startChat(event) {
-            const selectedUserId = event.target.getAttribute('data-uid');
-            const currentUser = auth.currentUser;
-            selectedChatId = [currentUser.uid, selectedUserId].sort().join('_'); // إنشاء chatId فريد للمحادثة بين المستخدمين
-            loadChat(selectedChatId); // تحميل الرسائل للمحادثة بين المستخدمين
-        }
-
-        // تحميل المحادثة بين المستخدمين
-        function loadChat(chatId) {
-            const messagesRef = ref(database, 'chats/' + chatId);
-            
-            // الاستماع للتغييرات في المحادثة
-            onValue(messagesRef, (snapshot) => {
-                const messagesContainer = document.getElementById('messages');
-                messagesContainer.innerHTML = ''; // مسح الرسائل السابقة
-                
-                snapshot.forEach((childSnapshot) => {
-                    const message = childSnapshot.val();
-                    const messageDiv = document.createElement('div');
-                    messageDiv.classList.add('message');
-                    messageDiv.textContent = `${message.username}: ${message.text}`;
-                    messagesContainer.appendChild(messageDiv);
-                });
+        // 🔹 تحميل قائمة المستخدمين
+        function loadUsers() {
+            get(ref(db, "users")).then(snapshot => {
+                if (snapshot.exists()) {
+                    const userList = document.getElementById('user-list');
+                    userList.innerHTML = "";
+                    Object.entries(snapshot.val()).forEach(([uid, userData]) => {
+                        if (uid !== currentUser.uid) {
+                            const li = document.createElement('li');
+                            li.textContent = userData.username;
+                            li.addEventListener("click", () => startChat(uid, userData.username));
+                            userList.appendChild(li);
+                        }
+                    });
+                }
             });
         }
 
-        // إرسال رسالة جديدة
-        document.getElementById('send-btn').addEventListener('click', () => {
-            const messageText = document.getElementById('message').value;
-            if (messageText.trim() === '') return;
+        // 🔹 بدء الدردشة مع مستخدم معين
+        function startChat(userId, username) {
+            selectedUser = userId;
+            document.getElementById("chat-title").textContent = "الدردشة مع " + username;
+            document.getElementById("messages").innerHTML = "";
 
-            const currentUser = auth.currentUser;
-            const messageData = {
-                username: currentUser.displayName,
-                text: messageText
-            };
+            const chatId = [currentUser.uid, selectedUser].sort().join("_");
+            const messagesRef = ref(db, "chats/" + chatId);
 
-            const newMessageRef = push(ref(database, 'chats/' + selectedChatId));
-            set(newMessageRef, messageData);
+            // تحميل الرسائل القديمة وإضافة الرسائل الجديدة في الوقت الفعلي
+            onChildAdded(messagesRef, snapshot => {
+                const messageData = snapshot.val();
+                const messageDiv = document.createElement("div");
+                messageDiv.className = "message " + (messageData.sender === currentUser.uid ? "you" : "other");
+                messageDiv.textContent = messageData.text;
+                document.getElementById("messages").appendChild(messageDiv);
+                playNotificationSound();
+            });
 
-            document.getElementById('message').value = ''; // مسح الحقل بعد إرسال الرسالة
+            // مراقبة حالة الكتابة
+            onValue(ref(db, `typing/${selectedUser}`), snapshot => {
+                if (snapshot.exists() && snapshot.val().typing) {
+                    document.getElementById("typing-status").textContent = username + " يكتب...";
+                } else {
+                    document.getElementById("typing-status").textContent = "";
+                }
+            });
+        }
+
+        // 🔹 إرسال الرسالة
+        document.getElementById("send-btn").addEventListener("click", () => {
+            const messageInput = document.getElementById("message");
+            if (messageInput.value.trim() && selectedUser) {
+                const chatId = [currentUser.uid, selectedUser].sort().join("_");
+                push(ref(db, "chats/" + chatId), {
+                    sender: currentUser.uid,
+                    text: messageInput.value
+                });
+                messageInput.value = "";
+                set(ref(db, `typing/${currentUser.uid}`), { typing: false });
+            }
         });
+
+        // 🔹 إظهار حالة الكتابة
+        let typingTimeout;
+        function showTyping() {
+            set(ref(db, `typing/${currentUser.uid}`), { typing: true });
+
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                set(ref(db, `typing/${currentUser.uid}`), { typing: false });
+            }, 2000);
+        }
+
+        // 🔹 تشغيل صوت الإشعار عند استلام رسالة جديدة
+        function playNotificationSound() {
+            let sound = new Audio("notification.mp3");
+            sound.play();
+        }
+
+      // ✅ تفعيل زر الوضع الليلي
+document.getElementById("dark-mode-toggle").addEventListener("click", () => {
+    document.body.classList.toggle("dark-mode");
+});
+
+// ✅ تفعيل زر تسجيل الخروج
+document.getElementById("logout-btn").addEventListener("click", () => {
+    import("https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js")
+        .then(({ getAuth, signOut }) => {
+            const auth = getAuth();
+            signOut(auth).then(() => {
+                window.location.href = "index.html";
+            });
+        });
+});
+
+// ✅ تفعيل زر إرسال الرسائل
+document.getElementById("send-btn").addEventListener("click", sendMessage);
+
+document.getElementById("message").addEventListener("keypress", function (event) {
+    if (event.key === "Enter") sendMessage();
+});
+
+function sendMessage() {
+    const messageInput = document.getElementById("message");
+    if (messageInput.value.trim() && selectedUser) {
+        import("https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js")
+            .then(({ getDatabase, ref, push }) => {
+                const db = getDatabase();
+                const chatId = [currentUser.uid, selectedUser].sort().join("_");
+
+                push(ref(db, "chats/" + chatId), {
+                    sender: currentUser.uid,
+                    text: messageInput.value
+                });
+
+                messageInput.value = "";
+            });
+    }
+}
+
     </script>
 </body>
 </html>
